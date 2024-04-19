@@ -6,87 +6,74 @@
 # чем количество нулевых  элементов в четных столбцах в области 1, то поменять в В симметрично области 2 и 3 местами, иначе С и Е поменять местами несимметрично. 
 # При этом матрица А не меняется. После чего вычисляется выражение: ((F*A)– (K * AT) . Выводятся по мере формирования А, F и все матричные операции последовательно.
 
-
 import random
 
-def generate_matrix(N):
-    matrix = []
-    for _ in range(N):
-        row = []
-        for _ in range(N):
-            row.append(random.randint(-10, 10))
-        matrix.append(row)
-    return matrix
-
-def count_zeros(matrix, region):
-    count = 0
-    for i in range(region[0], region[1]):
-        for j in range(region[2], region[3]):
+def count_zeros(matrix, start_row, end_row, start_col, end_col):
+    if not matrix:  # Проверка на пустую матрицу
+        return 0
+    zeros_count = 0
+    for i in range(start_row, end_row):
+        for j in range(start_col, end_col):
+            if i >= len(matrix) or j >= len(matrix[0]):  # Проверка на выход за границы матрицы
+                continue
             if matrix[i][j] == 0:
-                count += 1
-    return count
-
+                zeros_count += 1
+    return zeros_count
 def swap_regions(matrix, region1, region2):
-    for i in range(region1[0], region1[1]):
-        for j in range(region1[2], region1[3]):
-            temp = matrix[i][j]
-            matrix[i][j] = matrix[region2[0]+i-region1[0]][region2[2]+j-region1[2]]
-            matrix[region2[0]+i-region1[0]][region2[2]+j-region1[2]] = temp
+    temp = matrix[region1[0]:region1[1], region1[2]:region1[3]].copy()
+    matrix[region1[0]:region1[1], region1[2]:region1[3]] = matrix[region2[0]:region2[1], region2[2]:region2[3]]
+    matrix[region2[0]:region2[1], region2[2]:region2[3]] = temp
+def generate_matrix(N, K):
+    if K > N // 2:  # Проверка на допустимый размер K
+        raise ValueError("K must be less than or equal to half the size of the matrix N.")
+    A = [[random.randint(-10, 10) for _ in range(N)] for _ in range(N)]
+    print("Матрица A:")
+    print_matrix(A)
+    return A
+def form_matrix_F(A, K):
+    B = A[:K]
+    C = A[:K][K:]
+    D = A[K:][:K]
+    E = A[K:][K:]
+    region1 = [0, K, K, 2 * K]
+    region2 = [K, 2 * K, 0, K]
+    zeros_odd_cols_region4 = count_zeros(C, 0, K, K, 2 * K)
+    zeros_even_cols_region1 = count_zeros(C, 0, K, 0, K)
 
-def transpose_matrix(matrix):
-    N = len(matrix)
-    for i in range(N):
-        for j in range(i+1, N):
-            matrix[i][j], matrix[j][i] = matrix[j][i], matrix[i][j]
-
-def compute_expression(A, F, K):
-    N = len(A)
-    AT = [[0] * N for _ in range(N)]
-    for i in range(N):
-        for j in range(N):
-            AT[i][j] = A[j][i]
-
-    result = [[0] * N for _ in range(N)]
-    for i in range(N):
-        for j in range(N):
-            for k in range(N):
-                result[i][j] += F[i][k] * A[k][j]
-            result[i][j] -= K * AT[i][j]
-
-    return result
-
+    if zeros_odd_cols_region4 > zeros_even_cols_region1:
+        swap_regions(B, region1, region2)
+    else:
+        temp = C.copy()
+        C = E.copy()
+        E = temp.copy()
+    F = [[*row] for row in B] + [[*row] for row in C] + [[*row] for row in D] + [[*row] for row in E]
+    print("Матрица F:")
+    print_matrix(F)
+    return F
+def calculate_expression(F, A, K):
+    FA = multiply_matrices(F, A)
+    AT = transpose_matrix(A)
+    KAT = multiply_matrix_by_scalar(K, AT)
+    result = subtract_matrices(FA, KAT)
+    print("Результат вычисления выражения ((F * A) - (K * AT)):")
+    print_matrix(result)
 def print_matrix(matrix):
     for row in matrix:
         print(row)
+def multiply_matrices(A, B):
+    result = [[sum(a * b for a, b in zip(A_row, B_col)) for B_col in zip(*B)] for A_row in A]
+    return result
+def transpose_matrix(A):
 
-# Ввод размерности матрицы и значения K
-N = int(input("Введите размерность матрицы: "))
-K = int(input("Введите значение K: "))
+    return [[A[j][i] for j in range(len(A))] for i in range(len(A[0]))]
+def multiply_matrix_by_scalar(k, A):
+   return [[k * element for element in row] for row in A]
+def subtract_matrices(A, B):
+    return [[a - b for a, b in zip(A_row, B_row)] for A_row, B_row in zip(A, B)]
 
-# Генерация случайной матрицы A
-A = generate_matrix(N)
-print("Матрица A:")
-print_matrix(A)
+N = int(input("Введите размер матрицы N: "))
+K = int(input("Введите размер подматрицы K: "))
+A = generate_matrix(N, K)
+F = form_matrix_F(A, K)
 
-# Формирование подматриц B, C, D, E целенаправленно
-B = [[1] * (N // 2) for _ in range(N // 2)]
-C = [[2] * (N // 2) for _ in range(N // 2)]
-D = [[3] * (N // 2) for _ in range(N // 2)]
-E = [[4] * (N // 2) for _ in range(N // 2)]
-
-# Формирование матрицы F в соответствии с условием задачи
-region1 = (0, N // 2, 0, N // 2)
-region2 = (0, N // 2, N // 2, N)
-if count_zeros(C, region2) > count_zeros(C, region1):
-    swap_regions(B, region2, region1)
-else:
-    swap_regions(C, region2, region1)
-
-F = B + C + D + E
-print("Матрица F:")
-print_matrix(F)
-
-# Вычисление выражения ((F*A) - (K * AT))
-result = compute_expression(A, F, K)
-print("Результат вычисления выражения:")
-print_matrix(result)
+calculate_expression(F, A, K)
